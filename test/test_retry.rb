@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "minitest/mock" # provides Object#stub / Net::HTTP.stub used below
 require "quolle"
 
 # Exercises the real Client#request retry logic by stubbing the HTTP transport.
