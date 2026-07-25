@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
-require "minitest/mock" # provides Object#stub / Net::HTTP.stub used below
 require "quolle"
 
 # Exercises the real Client#request retry logic by stubbing the HTTP transport.
@@ -46,16 +45,19 @@ class RetryTest < Minitest::Test
     client = Quolle::Client.new(api_key: "qle_test")
     # No real waiting between retries.
     client.define_singleton_method(:sleep) { |*| }
-    result = nil
-    error = nil
-    Net::HTTP.stub(:new, fake) do
-      begin
-        result = client.emails.send(from: "a@b.com", to: "c@d.com", subject: "s", html: "<p>x</p>", **send_opts)
-      rescue Quolle::Error => e
-        error = e
-      end
+
+    # Stub Net::HTTP.new to return our fake transport, then restore it. Done
+    # manually (not via minitest/mock, which isn't reliably present on CI runners).
+    original_new = Net::HTTP.method(:new)
+    Net::HTTP.define_singleton_method(:new) { |*_args| fake }
+    begin
+      result = client.emails.send(from: "a@b.com", to: "c@d.com", subject: "s", html: "<p>x</p>", **send_opts)
+      [fake.calls, result, nil]
+    rescue Quolle::Error => e
+      [fake.calls, nil, e]
+    ensure
+      Net::HTTP.define_singleton_method(:new, original_new)
     end
-    [fake.calls, result, error]
   end
 
   def test_retries_on_429_then_succeeds
