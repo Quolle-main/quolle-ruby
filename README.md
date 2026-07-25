@@ -93,6 +93,29 @@ result = quolle.emails.send_batch([
 puts "Queued #{result['queued']}"
 ```
 
+### Attachments
+
+Pass `attachments:` — an array of hashes with `filename`, base64 `content`, and an
+optional `contentType`. Up to 20 files, 10 MB total.
+
+```ruby
+require "base64"
+
+quolle.emails.send(
+  from: "billing@mail.yourdomain.com",
+  to: "customer@example.com",
+  subject: "Your invoice",
+  html: "<p>Invoice attached.</p>",
+  attachments: [
+    {
+      filename: "invoice.pdf",
+      content: Base64.strict_encode64(File.binread("invoice.pdf")),
+      contentType: "application/pdf"
+    }
+  ]
+)
+```
+
 ## Retrieve & cancel
 
 ```ruby

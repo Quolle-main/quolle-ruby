@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
   spec.metadata = {
     "homepage_uri" => "https://quolle.com",
     "documentation_uri" => "https://docs.quolle.com",
-    "source_code_uri" => "https://github.com/quolle/quolle-ruby"
+    "source_code_uri" => "https://github.com/Quolle-main/quolle-ruby"
   }
 
   spec.files = Dir["lib/**/*.rb", "README.md", "LICENSE"]
