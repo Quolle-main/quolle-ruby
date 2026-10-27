@@ -89,15 +89,33 @@ module Quolle
           raise last_error
         end
 
-        parsed = resp.body.to_s.empty? ? {} : (JSON.parse(resp.body) rescue {})
         status = resp.code.to_i
+        json_ok = true
+        parsed =
+          if resp.body.to_s.empty?
+            {}
+          else
+            begin
+              JSON.parse(resp.body)
+            rescue JSON::ParserError
+              json_ok = false
+              {}
+            end
+          end
 
         if (200..299).cover?(status)
+          # A 2xx that isn't JSON (a proxy page, a truncated body) is an error,
+          # not an empty success.
+          unless json_ok
+            raise Quolle::Error.new("Unexpected non-JSON response from the Quolle API",
+                                    status_code: status, data: { "body" => resp.body.to_s[0, 500] })
+          end
           return parsed
         end
 
         message = parsed.delete("error") || "Request failed with status #{status}"
-        last_error = Quolle::Error.new(message, status_code: status, data: parsed)
+        code = parsed.delete("code")
+        last_error = Quolle::Error.new(message, status_code: status, data: parsed, code: code)
         retryable = status == 429 || ((500..504).cover?(status) && (idempotent || has_idem))
         if attempt < @max_retries && retryable
           sleep(backoff(attempt, resp["Retry-After"]))

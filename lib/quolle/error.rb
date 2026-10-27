@@ -8,11 +8,16 @@ module Quolle
     attr_reader :status_code
     # @return [Hash] extra fields returned alongside +error+.
     attr_reader :data
+    # @return [String, nil] the API's stable, machine-readable error code
+    #   (e.g. "validation_error", "rate_limit_exceeded"). Branch on this, not
+    #   on the message. nil for transport failures.
+    attr_reader :code
 
-    def initialize(message, status_code: nil, data: {})
+    def initialize(message, status_code: nil, data: {}, code: nil)
       super(message)
       @status_code = status_code
       @data = data || {}
+      @code = code
     end
   end
 end

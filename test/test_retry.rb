@@ -86,4 +86,17 @@ class RetryTest < Minitest::Test
     assert_equal "em_ok", result["id"]
     assert_equal 2, calls
   end
+
+  def test_non_json_success_raises
+    _calls, _result, error = run_with([FakeResp.new(200, "<html>proxy</html>")])
+    refute_nil error
+    assert_match(/non-JSON/, error.message)
+  end
+
+  def test_error_code_is_parsed_from_the_body
+    _calls, _result, error = run_with([FakeResp.new(400, '{"code":"validation_error","error":"to: Required"}')])
+    assert_equal "validation_error", error.code
+    assert_equal "to: Required", error.message
+    refute error.data.key?("code")
+  end
 end
