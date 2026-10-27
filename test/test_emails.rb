@@ -87,4 +87,26 @@ class EmailsTest < Minitest::Test
     assert_equal 3000, err.data["limit"]
     assert_equal "Monthly limit reached", err.message
   end
+
+  def test_create_is_the_same_as_send
+    @client.response = { "id" => "em_1" }
+    @emails.create(from: "a@b.co", to: "c@d.co", subject: "s", html: "<p>x</p>")
+    assert_equal "/v1/emails/send", @client.last[:path]
+  end
+
+  def test_message_type_maps_to_type
+    @emails.create(from: "a@b.co", to: "c@d.co", subject: "s", html: "<p>x</p>", message_type: "marketing")
+    assert_equal "marketing", @client.last[:body]["type"]
+  end
+
+  def test_ids_are_path_encoded_not_form_encoded
+    @client.response = { "email" => {} }
+    @emails.get("a b/c")
+    assert_equal "/v1/emails/a%20b%2Fc", @client.last[:path]
+  end
+
+  def test_error_carries_api_code
+    e = Quolle::Error.new("Warm-up cap reached", status_code: 429, code: "warmup_limit_exceeded")
+    assert_equal "warmup_limit_exceeded", e.code
+  end
 end

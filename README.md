@@ -33,6 +33,11 @@ result = quolle.emails.send(
 puts "Queued: #{result['id']}"
 ```
 
+`emails.create(...)` does exactly the same thing and doesn't shadow Ruby's
+`Object#send`, so prefer it if you use `send` for dynamic dispatch. Pass
+`type: "marketing"` for marketing mail (adds unsubscribe headers); the default
+is transactional.
+
 ## Sending
 
 ### Multiple recipients
@@ -135,6 +140,7 @@ begin
   )
 rescue Quolle::Error => e
   puts e.status_code # e.g. 402
+  puts e.code        # e.g. "monthly_quota_exceeded" — branch on this
   puts e.message     # e.g. "Monthly limit reached"
   puts e.data        # extra fields, e.g. {"limit" => 3000}
 end
