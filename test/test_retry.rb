@@ -71,6 +71,26 @@ class RetryTest < Minitest::Test
     assert_equal 3, calls
   end
 
+  def test_quota_429s_are_raised_at_once
+    %w[daily_quota_exceeded warmup_limit_exceeded].each do |code|
+      calls, _result, error = run_with([
+        FakeResp.new(429, %({"code":"#{code}","error":"cap reached"})),
+        FakeResp.new(200, '{"id":"em_ok"}')
+      ])
+      assert_equal code, error&.code
+      assert_equal 1, calls, "#{code} must not be retried"
+    end
+  end
+
+  def test_long_retry_after_is_raised_not_slept_through
+    calls, _result, error = run_with([
+      FakeResp.new(429, '{"code":"rate_limit_exceeded","error":"slow down"}', { "Retry-After" => "3600" }),
+      FakeResp.new(200, '{"id":"em_ok"}')
+    ])
+    refute_nil error
+    assert_equal 1, calls
+  end
+
   def test_post_5xx_without_idempotency_does_not_retry
     calls, _result, error = run_with([FakeResp.new(500, '{"error":"boom"}')])
     refute_nil error
