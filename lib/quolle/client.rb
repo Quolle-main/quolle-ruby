@@ -28,6 +28,14 @@ module Quolle
     # @return [Quolle::Resources::Webhooks]
     attr_reader :webhooks
 
+    # 429s that retrying can't fix: the limit resets at a fixed time (midnight
+    # UTC, the next billing period), not in seconds. Raised at once so the
+    # caller can queue the send instead of blocking in a retry loop.
+    NO_RETRY_CODES = %w[daily_quota_exceeded warmup_limit_exceeded monthly_quota_exceeded].freeze
+    # A Retry-After longer than this (seconds) means "not soon": raise instead
+    # of sleeping through it.
+    MAX_RETRY_WAIT = 60
+
     # @param api_key [String, nil] your API key (falls back to QUOLLE_API_KEY)
     # @param base_url [String]
     # @param timeout [Integer] per-request timeout in seconds
@@ -116,9 +124,11 @@ module Quolle
         message = parsed.delete("error") || "Request failed with status #{status}"
         code = parsed.delete("code")
         last_error = Quolle::Error.new(message, status_code: status, data: parsed, code: code)
-        retryable = status == 429 || ((500..504).cover?(status) && (idempotent || has_idem))
-        if attempt < @max_retries && retryable
-          sleep(backoff(attempt, resp["Retry-After"]))
+        retryable = (status == 429 && !NO_RETRY_CODES.include?(code)) ||
+                    ((500..504).cover?(status) && (idempotent || has_idem))
+        wait = backoff(attempt, resp["Retry-After"])
+        if attempt < @max_retries && retryable && wait <= MAX_RETRY_WAIT
+          sleep(wait)
           next
         end
         raise last_error
