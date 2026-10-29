@@ -8,6 +8,8 @@ require_relative "version"
 require_relative "error"
 require_relative "resources/emails"
 require_relative "resources/webhooks"
+require_relative "resources/domains"
+require_relative "resources/api_keys"
 
 module Quolle
   # The Quolle API client.
@@ -27,6 +29,10 @@ module Quolle
     attr_reader :emails
     # @return [Quolle::Resources::Webhooks]
     attr_reader :webhooks
+    # @return [Quolle::Resources::Domains] sending domains (full-access key)
+    attr_reader :domains
+    # @return [Quolle::Resources::ApiKeys] API keys (full-access key)
+    attr_reader :api_keys
 
     # 429s that retrying can't fix: the limit resets at a fixed time (midnight
     # UTC, the next billing period), not in seconds. Raised at once so the
@@ -49,6 +55,8 @@ module Quolle
       @max_retries = max_retries
       @emails = Resources::Emails.new(self)
       @webhooks = Resources::Webhooks.new(self)
+      @domains = Resources::Domains.new(self)
+      @api_keys = Resources::ApiKeys.new(self)
     end
 
     # Perform an authenticated request and return the parsed JSON body.
@@ -70,6 +78,7 @@ module Quolle
       klass = {
         "GET" => Net::HTTP::Get,
         "POST" => Net::HTTP::Post,
+        "PATCH" => Net::HTTP::Patch,
         "DELETE" => Net::HTTP::Delete
       }.fetch(method.upcase)
 
