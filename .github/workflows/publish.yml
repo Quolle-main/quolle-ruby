@@ -2,14 +2,20 @@ name: Publish
 on:
   release:
     types: [published]
+permissions:
+  contents: read
 jobs:
   publish:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
+          ruby-version: "ruby"
+      # The tag must match lib/quolle/version.rb, so a release can't publish the wrong version.
+      - run: test "v$(ruby -r ./lib/quolle/version -e 'print Quolle::VERSION')" = "$GITHUB_REF_NAME"
+      - run: gem install minitest
+      - run: ruby -Ilib -Itest -e 'Dir.glob("test/test_*.rb").each { |f| require File.expand_path(f) }'
       - run: gem build quolle.gemspec
       - run: gem push quolle-*.gem
         env:
