@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
   spec.description = "Send transactional email through Quolle from Ruby."
   spec.homepage = "https://quolle.com"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 2.7"
+  spec.required_ruby_version = ">= 3.3"
 
   spec.metadata = {
     "homepage_uri" => "https://quolle.com",

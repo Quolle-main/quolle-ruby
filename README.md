@@ -14,7 +14,7 @@ Or in your Gemfile:
 gem "quolle"
 ```
 
-Requires Ruby 2.7+. No third-party dependencies.
+Requires Ruby 3.3+. No third-party dependencies.
 
 ## Quick start
 
