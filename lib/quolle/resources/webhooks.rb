@@ -2,14 +2,73 @@
 
 require "openssl"
 require "json"
+require "uri"
+require_relative "path"
 
 module Quolle
   module Resources
-    # Verify that an incoming webhook really came from Quolle.
+    # Verify incoming webhooks, and manage webhook endpoints (+client.webhooks+).
+    # +verify+ makes no API call; the management methods need a full-access key.
     class Webhooks
       DEFAULT_TOLERANCE = 300 # seconds
 
-      def initialize(_client = nil); end
+      def initialize(client = nil)
+        @client = client
+      end
+
+      # @return [Array<Hash>] the events a webhook can subscribe to
+      def events
+        req("GET", "/v1/webhooks/events")["events"] || []
+      end
+
+      # @return [Array<Hash>]
+      def list
+        req("GET", "/v1/webhooks")["webhooks"] || []
+      end
+
+      # Add an endpoint. The returned +secret+ (whsec_…) is shown once; store it.
+      def create(url:, events:)
+        req("POST", "/v1/webhooks", { url: url, events: events })
+      end
+
+      def get(id)
+        req("GET", "/v1/webhooks/#{Path.escape(id)}")
+      end
+
+      # Change the URL or events. The signing secret stays the same.
+      def update(id, url: nil, events: nil)
+        body = {}
+        body[:url] = url if url
+        body[:events] = events if events
+        req("PATCH", "/v1/webhooks/#{Path.escape(id)}", body)
+      end
+
+      def remove(id)
+        req("DELETE", "/v1/webhooks/#{Path.escape(id)}")
+      end
+
+      # Send a signed +webhook.test+ event now and report how the endpoint answered.
+      def test(id)
+        req("POST", "/v1/webhooks/#{Path.escape(id)}/test")
+      end
+
+      # Deliveries from the last 30 days, newest first.
+      # @param status ["succeeded", "pending", "failed", nil]
+      def deliveries(id, status: nil, limit: nil)
+        params = { status: status, limit: limit }.compact
+        qs = params.empty? ? "" : "?#{URI.encode_www_form(params)}"
+        req("GET", "/v1/webhooks/#{Path.escape(id)}/deliveries#{qs}")["deliveries"] || []
+      end
+
+      # Send a delivery again, with the same body and +eventId+.
+      def redeliver(id, delivery_id)
+        req("POST", "/v1/webhooks/#{Path.escape(id)}/deliveries/#{Path.escape(delivery_id)}/redeliver")
+      end
+
+      # Replace the signing secret. Takes effect immediately; the new +secret+ is returned once.
+      def rotate_secret(id)
+        req("POST", "/v1/webhooks/#{Path.escape(id)}/rotate-secret")
+      end
 
       # Verify a webhook signature and return the parsed event.
       #
@@ -51,6 +110,12 @@ module Quolle
         res = 0
         b.each_byte { |byte| res |= byte ^ l.shift }
         res.zero?
+      end
+
+      def req(method, path, body = nil)
+        raise Quolle::Error.new("Webhooks was created without a client; use client.webhooks") unless @client
+
+        body ? @client.request(method, path, body: body) : @client.request(method, path)
       end
     end
   end

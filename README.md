@@ -171,6 +171,29 @@ end
 
 HMAC-SHA256 with a 5-minute timestamp window (replay protection).
 
+## Domains, API keys and webhooks
+
+These need a **full-access** API key. A sending-only key gets `403` with code `restricted_api_key`, so a key you ship in an app can't create keys or change your domains.
+
+```ruby
+# Domains
+created = quolle.domains.create("mail.example.com")    # created["dnsRecords"] to publish
+quolle.domains.verify(created["domain"]["id"])          # check DNS now
+quolle.domains.list.each { |d| puts "#{d["domain"]} #{d["status"]}" }
+
+# API keys
+new_key = quolle.api_keys.create(name: "web app", scope: "sending", domains: ["mail.example.com"])
+puts new_key["key"]                                      # shown once
+quolle.api_keys.remove(new_key["id"])
+
+# Webhook endpoints
+hook = quolle.webhooks.create(url: "https://example.com/hooks/quolle", events: %w[email.delivered email.bounced])
+# hook["secret"] (whsec_…) is shown once; store it for quolle.webhooks.verify(...)
+quolle.webhooks.test(hook["id"])
+quolle.webhooks.deliveries(hook["id"], status: "failed").each { |d| quolle.webhooks.redeliver(hook["id"], d["id"]) }
+new_secret = quolle.webhooks.rotate_secret(hook["id"])["secret"]
+```
+
 ## Automatic retries
 
 Transient failures — HTTP 429 (rate limit) and 5xx, plus network errors — are retried automatically with exponential backoff, honoring the `Retry-After` header. To avoid double-sending, a POST is only retried on a 5xx/network error when you pass an idempotency key; a 429 is always safe to retry (the request was never processed). Quota limits are the exception: `daily_quota_exceeded` and `warmup_limit_exceeded` (and any `Retry-After` over 60 seconds) are raised immediately, because they reset at a fixed time, not in seconds; check `e.code` and queue the send for later. Tune with `max_retries:` on `Quolle.new` (default 3).
